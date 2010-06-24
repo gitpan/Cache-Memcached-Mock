@@ -1,0 +1,13 @@
+INSTALL
+LICENSE
+MANIFEST
+META.json
+META.yml
+Makefile.PL
+README
+dist.ini
+lib/Cache/Memcached/Mock.pm
+t/000-load.t
+t/expiry.t
+t/get-multi.t
+t/get-set.t
