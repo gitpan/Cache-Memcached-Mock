@@ -5,9 +5,11 @@ use strict;
 use warnings;
 use integer;
 use bytes;
+use Storable ();
 
-sub VALUE     () { 0 }
-sub TIMESTAMP () { 1 }
+sub VALUE ()     {0}
+sub TIMESTAMP () {1}
+sub REFERENCE () {2}
 
 # All instances share the memory space
 our %MEMCACHE_STORAGE = ();
@@ -31,7 +33,7 @@ sub new {
     # Default memcached size limit
     $options->{size_limit} = 1024 * 1024;
 
-    my $self = { %{ $options } };
+    my $self = { %{$options} };
 
     bless $self, $class;
     $self->flush_all();
@@ -41,7 +43,7 @@ sub new {
 
 sub delete {
     my ($self, $key) = @_;
-    if (! exists $MEMCACHE_STORAGE{$key}) {
+    if (!exists $MEMCACHE_STORAGE{$key}) {
         return;
     }
     delete $MEMCACHE_STORAGE{$key};
@@ -49,7 +51,7 @@ sub delete {
 }
 
 sub disconnect_all {
-    return # noop
+    return    # noop
 }
 
 sub flush_all {
@@ -59,32 +61,38 @@ sub flush_all {
 
 sub get {
     my ($self, $key) = @_;
-    if (! exists $MEMCACHE_STORAGE{$key}) {
-        return;
-    }
-    # Check if value had an expire time
-    my $struct = $MEMCACHE_STORAGE{$key};
-    my $expiry_time = $struct->[TIMESTAMP];
-    if (defined $expiry_time && (time > $expiry_time)) {
-        delete $MEMCACHE_STORAGE{$key};
-        return;
-    }
-    return $struct->[VALUE];
+    return $self->get_multi($key)->{$key};
 }
 
 sub get_multi {
     my ($self, @keys) = @_;
-    my @values;
-    for my $k (@keys) {
-        my $v = $self->get($k);
-        push @values, $v;
+    my %pairs;
+
+    for my $key (@keys) {
+        if (exists $MEMCACHE_STORAGE{$key}) {
+
+            # Check if value had an expire time
+            my $struct      = $MEMCACHE_STORAGE{$key};
+            my $expiry_time = $struct->[TIMESTAMP];
+
+            if (defined $expiry_time && (time > $expiry_time)) {
+                delete $MEMCACHE_STORAGE{$key};
+            }
+            else {
+                $pairs{$key}
+                  = $struct->[REFERENCE]
+                  ? Storable::thaw($struct->[VALUE])
+                  : $struct->[VALUE];
+            }
+        }
     }
-    return @values;
+
+    return \%pairs;
 }
 
 sub replace {
     my ($self, $key, $value, $expiry_time) = @_;
-    if (! exists $MEMCACHE_STORAGE{$key}) {
+    if (!exists $MEMCACHE_STORAGE{$key}) {
         return;
     }
     return $self->set($key, $value, $expiry_time);
@@ -92,8 +100,13 @@ sub replace {
 
 sub set {
     my ($self, $key, $value, $expiry_time) = @_;
-
     my $size_limit = $self->_size_limit();
+    my $is_ref     = 0;
+
+    if (ref $value) {
+        $is_ref = 1;
+        $value  = Storable::nfreeze($value);
+    }
 
     # Can't store values longer than (default) 1Mb limit
     if (bytes::length($value) > $size_limit) {
@@ -102,11 +115,12 @@ sub set {
 
     if ($expiry_time) {
         $expiry_time += time();
-    } else {
+    }
+    else {
         $expiry_time = undef;
     }
 
-    $MEMCACHE_STORAGE{$key} = [ $value, $expiry_time ];
+    $MEMCACHE_STORAGE{$key} = [ $value, $expiry_time, $is_ref ];
 
     return 1;
 }
@@ -158,7 +172,7 @@ Cache::Memcached::Mock - A mock class for Cache::Memcached
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 SYNOPSIS
 
@@ -175,7 +189,7 @@ Supports only a subset of L<Cache::Memcached> functionality.
     # new() also flushes all values
     $cache->flush_all();
 
-    my @values = $cache->get_multi('key1', 'key2', '...');
+    my $pairs = $cache->get_multi('key1', 'key2', '...');
 
 =head1 DESCRIPTION
 
@@ -210,7 +224,7 @@ Cache::Memcached::Mock - A mock class for Cache::Memcached
 
 =head1 VERSION
 
-version 0.01
+version 0.03
 
 =head1 AUTHOR
 
