@@ -3,11 +3,10 @@ package Cache::Memcached::Mock;
 
 use strict;
 use warnings;
-use integer;
 use bytes;
 use Storable ();
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 sub VALUE ()     {0}
 sub TIMESTAMP () {1}
@@ -34,6 +33,9 @@ sub new {
 
     # Default memcached size limit
     $options->{size_limit} ||= 1024 * 1024;
+
+    # Default unsigned integer bit width when incrementing/decrementing.
+    $options->{bit_width} ||= 32;
 
     my $self = { %{$options} };
 
@@ -145,21 +147,51 @@ sub set_compress_threshold {
 
 sub incr {
     my ($self, $key, $offset) = @_;
-    $offset ||= 1;
-    return ($MEMCACHE_STORAGE{$key}->[VALUE] += $offset);
+    return $self->_incr_or_decr($key, $offset, '_add');
 }
 
 sub decr {
     my ($self, $key, $offset) = @_;
-    $offset ||= 1;
-    my $new_val = $MEMCACHE_STORAGE{$key}->[VALUE] - $offset;
-    $new_val = 0 if $new_val < 0;
+    return $self->_incr_or_decr($key, $offset, '_subtract');
+}
+
+sub _add {
+    my ($self, $x, $y) = @_;
+    my $result = $self->_to_uint($x) + $self->_to_uint($y);
+    
+    return $result % (2 ** $self->_bit_width());
+}
+
+sub _bit_width {
+    my ($self) = @_;
+    return $self->{bit_width};
+}
+
+sub _incr_or_decr {
+    my ($self, $key, $offset, $operation) = @_;
+    return unless exists $MEMCACHE_STORAGE{$key};
+    
+    $offset = 1 unless defined $offset;
+    my $new_val = $self->$operation($MEMCACHE_STORAGE{$key}->[VALUE], $offset);
+    
     return ($MEMCACHE_STORAGE{$key}->[VALUE] = $new_val);
 }
 
 sub _size_limit {
     my ($self) = @_;
     return $self->{size_limit};
+}
+
+sub _subtract {
+    my ($self, $x, $y) = @_;
+    my $result = $self->_to_uint($x) - $self->_to_uint($y);
+    
+    return $result <= 0 ? 0 : $result % (2 ** $self->_bit_width());
+}
+
+sub _to_uint {
+    my ($self, $n) = @_;
+    return $n & (2 ** $self->_bit_width() - 1);
 }
 
 1;
@@ -174,7 +206,7 @@ Cache::Memcached::Mock - A mock class for Cache::Memcached
 
 =head1 VERSION
 
-version 0.05
+version 0.06
 
 =head1 SYNOPSIS
 
@@ -185,6 +217,9 @@ Supports only a subset of L<Cache::Memcached> functionality.
     # You can also set the limit for the size of the values
     # Default real memcached limit is 1Mb
     $cache = Cache::Memcached::Mock->new({ size_limit => 65536 }); # bytes
+
+    # Or the default bit width when incrementing/decrementing unsigned integers.
+    $cache = Cache::Memcached::Mock->new({ bit_width => 32 });
 
     # Values are stored in a process global hash
     my $value = $cache->get('somekey');
@@ -236,11 +271,12 @@ Cache::Memcached::Mock - A mock class for Cache::Memcached
 
 =head1 VERSION
 
-version 0.05
+version 0.06
 
 =head1 AUTHOR
 
   Cosimo Streppone <cosimo@opera.com>
+  Márcio Faustino <marciof@opera.com>
 
 =head1 COPYRIGHT AND LICENSE
 
