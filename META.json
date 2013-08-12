@@ -4,17 +4,19 @@
       "Cosimo Streppone <cosimo@opera.com>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 3.101520",
-   "license" : "perl_5",
+   "generated_by" : "Dist::Zilla version 4.300016, CPAN::Meta::Converter version 2.120921",
+   "license" : [
+      "perl_5"
+   ],
    "meta-spec" : {
-      "url" : "http://github.com/dagolden/cpan-meta/",
-      "version" : 2
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
    },
    "name" : "Cache-Memcached-Mock",
    "prereqs" : {
       "configure" : {
          "requires" : {
-            "ExtUtils::MakeMaker" : "6.31"
+            "ExtUtils::MakeMaker" : "6.30"
          }
       },
       "test" : {
@@ -35,6 +37,6 @@
          "web" : "http://github.com/operasoftware/perl5-cache-memcached-mock"
       }
    },
-   "version" : "0.06"
+   "version" : "0.07"
 }
 

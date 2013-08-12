@@ -6,7 +6,7 @@ use warnings;
 use bytes;
 use Storable ();
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 sub VALUE ()     {0}
 sub TIMESTAMP () {1}
@@ -113,7 +113,7 @@ sub set {
     }
 
     # Can't store values longer than (default) 1Mb limit
-    if (bytes::length($value) > $size_limit) {
+    if (defined $value and bytes::length($value) > $size_limit) {
         return;
     }
 
@@ -196,7 +196,7 @@ sub _to_uint {
 
 1;
 
-
+__END__
 
 =pod
 
@@ -206,7 +206,7 @@ Cache::Memcached::Mock - A mock class for Cache::Memcached
 
 =head1 VERSION
 
-version 0.06
+version 0.07
 
 =head1 SYNOPSIS
 
@@ -291,14 +291,9 @@ Cosimo Streppone <cosimo@opera.com>
 
 =head1 COPYRIGHT AND LICENSE
 
-This software is copyright (c) 2010 by Opera Software ASA.
+This software is copyright (c) 2013 by Opera Software ASA.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
 
 =cut
-
-
-__END__
-
-
